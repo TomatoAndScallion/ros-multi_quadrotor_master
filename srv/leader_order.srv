@@ -1,0 +1,9 @@
+float32 set_point_x
+float32 set_point_y
+float32 set_point_z
+float32 set_point_vx
+float32 set_point_vy
+float32 set_point_vz
+---
+bool is_receive_pose
+bool is_receive_vel
