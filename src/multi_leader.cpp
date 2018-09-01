@@ -18,6 +18,7 @@
 #include "muti_quadrotor_manager/heartbeats.h"
 #include "geometry_msgs/PoseStamped.h" 
 #include "geometry_msgs/TwistStamped.h"
+#include "muti_quadrotor_manager/com_formation.h"
 
 #define MAX_clent 255
 #define My_level 1
@@ -28,9 +29,11 @@ bool synchro_next = false;
 bool heart_beat_flag = false;
 int circle_count = 0;
 int quadrotor_num = 0;
+bool start_formation = false;
 vector<quadrotor_node> quadrotor_node_list;
 ros::Publisher leader_pub; 
 ros::Publisher find_leader_pub;
+muti_quadrotor_manager::com_formation com_formation_pub;
 /*******************************************************
 * multi_leader node
 * 获得系统中每个编队节点的信息。
@@ -88,15 +91,27 @@ void leader_sub_callback(const muti_quadrotor_manager::heartbeat& msg)
 bool control_leader_handle(muti_quadrotor_manager::heartbeats::Request  &req,
                            muti_quadrotor_manager::heartbeats::Response &res)
 {  
-    if(req.start_find_node == false)
+    if(req.master_com == "stop_find_node")
     {
-        res.is_find_node = false;
+        res.received = true;
         find_node_flag = false;
     }
-    else if(req.start_find_node == true)
+    else if(req.master_com == "start_find_node")
     {
-        res.is_find_node = true;
+        res.received = true;
         find_node_flag = true;
+    }
+    else if(req.master_com == "start_formation")
+    {
+        res.received = true;
+        start_formation = true;
+        com_formation_pub.start_time = ros::Time::now();
+    }
+    else if(req.master_com == "stop_formation")
+    {
+        res.received = true;
+        start_formation = false;
+        com_formation_pub.stop_time = ros::Time::now();
     }
     return true;
  }
@@ -139,6 +154,7 @@ int main (int argc, char** argv){
     ros::Subscriber find_leader_sub = nh.subscribe("/leader_load_node",100,leader_load_callback); 
 
     ros::ServiceServer leader_server = nh.advertiseService("control_leader", control_leader_handle);
+    ros::Publisher com_pub = nh.advertise<muti_quadrotor_manager::com_formation>("/com_manager",10);
     string vs;//预先定义了几种可能的网卡类型
     muti_quadrotor_manager::find_node find_node_pub;
     vs= "wlan";//网卡名字，这里选择无线网卡
@@ -215,6 +231,18 @@ int main (int argc, char** argv){
                     //cout<<"OK"<<endl;
                 }
           }
+          if(start_formation == true)
+          {
+            com_formation_pub.header.stamp = ros::Time::now();
+            com_formation_pub.command = "start";
+          }
+          else if(start_formation == false)
+          {
+              com_formation_pub.header.stamp = ros::Time::now();
+              com_formation_pub.command = "stop";
+          }
+          com_pub.publish(com_formation_pub);
+
       }  
         
        // ros::Time T3 = ros::Time::now();
